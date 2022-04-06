@@ -19,79 +19,79 @@ import (
 var log = ctrl.Log.WithName("config")
 
 type Config interface {
-	FillConfigs(clusterConfig *configv1.Network, operConfig *operatorv1.AntreaInstall) error
-	ValidateConfig(clusterConfig *configv1.Network, operConfig *operatorv1.AntreaInstall) error
-	GenerateRenderData(operatorNetwork *ocoperv1.Network, operConfig *operatorv1.AntreaInstall) (*render.RenderData, error)
+	FillConfigs(clusterConfig *configv1.Network, operConfig *operatorv1.Loxilight) error
+	ValidateConfig(clusterConfig *configv1.Network, operConfig *operatorv1.Loxilight) error
+	GenerateRenderData(operatorNetwork *ocoperv1.Network, operConfig *operatorv1.Loxilight) (*render.RenderData, error)
 }
 
 type ConfigOc struct{}
 
 type ConfigK8s struct{}
 
-func fillConfig(clusterConfig *configv1.Network, operConfig *operatorv1.AntreaInstall) error {
-	antreaAgentConfig := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(operConfig.Spec.AntreaAgentConfig), &antreaAgentConfig)
+func fillConfig(clusterConfig *configv1.Network, operConfig *operatorv1.Loxilight) error {
+	loxilightAgentConfig := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(operConfig.Spec.LoxilightAgentConfig), &loxilightAgentConfig)
 	if err != nil {
-		return fmt.Errorf("failed to parse AntreaAgentConfig: %v", err)
+		return fmt.Errorf("failed to parse LoxilightAgentConfig: %v", err)
 	}
 	// Set service CIDR.
 	if clusterConfig == nil {
-		if _, ok := antreaAgentConfig[types.ServiceCIDROption]; !ok {
+		if _, ok := loxilightAgentConfig[types.ServiceCIDROption]; !ok {
 			return errors.New("serviceCIDR should be specified on kubernetes.")
 		}
 	} else {
-		if serviceCIDR, ok := antreaAgentConfig[types.ServiceCIDROption].(string); !ok {
-			antreaAgentConfig[types.ServiceCIDROption] = clusterConfig.Spec.ServiceNetwork[0]
+		if serviceCIDR, ok := loxilightAgentConfig[types.ServiceCIDROption].(string); !ok {
+			loxilightAgentConfig[types.ServiceCIDROption] = clusterConfig.Spec.ServiceNetwork[0]
 		} else if found := inSlice(serviceCIDR, clusterConfig.Spec.ServiceNetwork); !found {
 			log.Info("WARNING: option: %s is overwritten by cluster config")
-			antreaAgentConfig[types.ServiceCIDROption] = clusterConfig.Spec.ServiceNetwork[0]
+			loxilightAgentConfig[types.ServiceCIDROption] = clusterConfig.Spec.ServiceNetwork[0]
 		}
 	}
 	// Set default MTU.
-	_, ok := antreaAgentConfig[types.DefaultMTUOption]
+	_, ok := loxilightAgentConfig[types.DefaultMTUOption]
 	if !ok {
-		antreaAgentConfig[types.DefaultMTUOption] = types.DefaultMTU
+		loxilightAgentConfig[types.DefaultMTUOption] = types.DefaultMTU
 	}
-	// Set Antrea image.
-	if operConfig.Spec.AntreaImage == "" {
-		operConfig.Spec.AntreaImage = types.DefaultAntreaImage
+	// Set Loxilight image.
+	if operConfig.Spec.LoxilightImage == "" {
+		operConfig.Spec.LoxilightImage = types.DefaultLoxilightImage
 	}
-	updatedAntreaAgentConfig, err := yaml.Marshal(antreaAgentConfig)
+	updatedLoxilightAgentConfig, err := yaml.Marshal(loxilightAgentConfig)
 	if err != nil {
-		return fmt.Errorf("failed to fill configurations in AntreaAgentConfig: %v", err)
+		return fmt.Errorf("failed to fill configurations in LoxilightAgentConfig: %v", err)
 	}
-	operConfig.Spec.AntreaAgentConfig = string(updatedAntreaAgentConfig)
+	operConfig.Spec.LoxilightAgentConfig = string(updatedLoxilightAgentConfig)
 	return nil
 }
 
-func (c *ConfigOc) FillConfigs(clusterConfig *configv1.Network, operConfig *operatorv1.AntreaInstall) error {
+func (c *ConfigOc) FillConfigs(clusterConfig *configv1.Network, operConfig *operatorv1.Loxilight) error {
 	return fillConfig(clusterConfig, operConfig)
 }
 
-func (c *ConfigK8s) FillConfigs(clusterConfig *configv1.Network, operConfig *operatorv1.AntreaInstall) error {
+func (c *ConfigK8s) FillConfigs(clusterConfig *configv1.Network, operConfig *operatorv1.Loxilight) error {
 	return fillConfig(clusterConfig, operConfig)
 }
 
-func validateConfig(clusterConfig *configv1.Network, operConfig *operatorv1.AntreaInstall) error {
+func validateConfig(clusterConfig *configv1.Network, operConfig *operatorv1.Loxilight) error {
 	var errs []error
 
-	if operConfig.Spec.AntreaImage == "" {
-		errs = append(errs, fmt.Errorf("antreaImage option can not be empty"))
+	if operConfig.Spec.LoxilightImage == "" {
+		errs = append(errs, fmt.Errorf("LoxilightImage option can not be empty"))
 	}
 
-	antreaAgentConfig := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(operConfig.Spec.AntreaAgentConfig), &antreaAgentConfig)
+	loxilightAgentConfig := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(operConfig.Spec.LoxilightAgentConfig), &loxilightAgentConfig)
 	if err != nil {
-		errs = append(errs, fmt.Errorf("failed to parse AntreaAgentConfig: %v", err))
+		errs = append(errs, fmt.Errorf("failed to parse LoxilightAgentConfig: %v", err))
 		return fmt.Errorf("invalidate configuration: %v", errs)
 	}
 
 	if clusterConfig == nil {
-		if _, ok := antreaAgentConfig[types.ServiceCIDROption]; !ok {
+		if _, ok := loxilightAgentConfig[types.ServiceCIDROption]; !ok {
 			errs = append(errs, fmt.Errorf("serviceCIDR option can not be empty"))
 		}
 	} else {
-		if serviceCIDR, ok := antreaAgentConfig[types.ServiceCIDROption].(string); !ok {
+		if serviceCIDR, ok := loxilightAgentConfig[types.ServiceCIDROption].(string); !ok {
 			errs = append(errs, fmt.Errorf("serviceCIDR option can not be empty"))
 		} else if found := inSlice(serviceCIDR, clusterConfig.Spec.ServiceNetwork); !found {
 			errs = append(errs, fmt.Errorf("invalid serviceCIDR option: %s, available values are: %s", serviceCIDR, clusterConfig.Spec.ServiceNetwork))
@@ -103,29 +103,29 @@ func validateConfig(clusterConfig *configv1.Network, operConfig *operatorv1.Antr
 	return nil
 }
 
-func (c *ConfigOc) ValidateConfig(clusterConfig *configv1.Network, operConfig *operatorv1.AntreaInstall) error {
+func (c *ConfigOc) ValidateConfig(clusterConfig *configv1.Network, operConfig *operatorv1.Loxilight) error {
 	return validateConfig(clusterConfig, operConfig)
 }
 
-func (c *ConfigK8s) ValidateConfig(clusterConfig *configv1.Network, operConfig *operatorv1.AntreaInstall) error {
+func (c *ConfigK8s) ValidateConfig(clusterConfig *configv1.Network, operConfig *operatorv1.Loxilight) error {
 	return validateConfig(clusterConfig, operConfig)
 }
 
-func NeedApplyChange(preConfig, curConfig *operatorv1.AntreaInstall) (agentNeedChange, controllerNeedChange, imageChange bool) {
+func NeedApplyChange(preConfig, curConfig *operatorv1.Loxilight) (agentNeedChange, controllerNeedChange, imageChange bool) {
 	if preConfig == nil {
 		return true, true, false
 	}
 
-	if preConfig.Spec.AntreaAgentConfig != curConfig.Spec.AntreaAgentConfig {
+	if preConfig.Spec.LoxilightAgentConfig != curConfig.Spec.LoxilightAgentConfig {
 		agentNeedChange = true
 	}
-	if preConfig.Spec.AntreaCNIConfig != curConfig.Spec.AntreaCNIConfig {
+	if preConfig.Spec.LoxilightCNIConfig != curConfig.Spec.LoxilightCNIConfig {
 		agentNeedChange = true
 	}
-	if preConfig.Spec.AntreaControllerConfig != curConfig.Spec.AntreaControllerConfig {
+	if preConfig.Spec.LoxilightControllerConfig != curConfig.Spec.LoxilightControllerConfig {
 		controllerNeedChange = true
 	}
-	if preConfig.Spec.AntreaImage != curConfig.Spec.AntreaImage {
+	if preConfig.Spec.LoxilightImage != curConfig.Spec.LoxilightImage {
 		agentNeedChange = true
 		controllerNeedChange = true
 		imageChange = true
@@ -155,14 +155,14 @@ func HasClusterNetworkConfigChange(preConfig, curConfig *configv1.Network) bool 
 	return false
 }
 
-func HasDefaultMTUChange(preConfig, curConfig *operatorv1.AntreaInstall) (bool, int, error) {
+func HasDefaultMTUChange(preConfig, curConfig *operatorv1.Loxilight) (bool, int, error) {
 
-	curAntreaAgentConfig := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(curConfig.Spec.AntreaAgentConfig), &curAntreaAgentConfig)
+	curLoxilightAgentConfig := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(curConfig.Spec.LoxilightAgentConfig), &curLoxilightAgentConfig)
 	if err != nil {
 		return false, types.DefaultMTU, err
 	}
-	curDefaultMTU, ok := curAntreaAgentConfig[types.DefaultMTUOption]
+	curDefaultMTU, ok := curLoxilightAgentConfig[types.DefaultMTUOption]
 	if !ok {
 		return false, types.DefaultMTU, fmt.Errorf("%s option can not be empty", types.DefaultMTUOption)
 	}
@@ -171,12 +171,12 @@ func HasDefaultMTUChange(preConfig, curConfig *operatorv1.AntreaInstall) (bool, 
 		return true, curDefaultMTU.(int), nil
 	}
 
-	preAntreaAgentConfig := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(preConfig.Spec.AntreaAgentConfig), &preAntreaAgentConfig)
+	preLoxilightAgentConfig := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(preConfig.Spec.LoxilightAgentConfig), &preLoxilightAgentConfig)
 	if err != nil {
 		return false, types.DefaultMTU, err
 	}
-	preDefaultMTU, ok := preAntreaAgentConfig[types.DefaultMTUOption]
+	preDefaultMTU, ok := preLoxilightAgentConfig[types.DefaultMTUOption]
 	if !ok {
 		return false, types.DefaultMTU, fmt.Errorf("%s option can not be empty", types.DefaultMTUOption)
 	}
@@ -234,13 +234,13 @@ func pluginCNIConfDir(conf *ocoperv1.NetworkSpec) string {
 	return network.SystemCNIConfDir
 }
 
-func generateRenderData(operatorNetwork *ocoperv1.Network, operConfig *operatorv1.AntreaInstall) *render.RenderData {
+func generateRenderData(operatorNetwork *ocoperv1.Network, operConfig *operatorv1.Loxilight) *render.RenderData {
 	renderData := render.MakeRenderData()
 	renderData.Data[types.ReleaseVersion] = "1.0.0"
-	renderData.Data[types.AntreaAgentConfigRenderKey] = operConfig.Spec.AntreaAgentConfig
-	renderData.Data[types.AntreaCNIConfigRenderKey] = operConfig.Spec.AntreaCNIConfig
-	renderData.Data[types.AntreaControllerConfigRenderKey] = operConfig.Spec.AntreaControllerConfig
-	renderData.Data[types.AntreaImageRenderKey] = operConfig.Spec.AntreaImage
+	renderData.Data[types.LoxilightAgentConfigRenderKey] = operConfig.Spec.LoxilightAgentConfig
+	renderData.Data[types.LoxilightCNIConfigRenderKey] = operConfig.Spec.LoxilightCNIConfig
+	renderData.Data[types.LoxilightControllerConfigRenderKey] = operConfig.Spec.LoxilightControllerConfig
+	renderData.Data[types.LoxilightImageRenderKey] = operConfig.Spec.LoxilightImage
 	if operatorNetwork == nil {
 		renderData.Data[types.CNIConfDirRenderKey] = gocni.DefaultNetDir
 		renderData.Data[types.CNIBinDirRenderKey] = gocni.DefaultCNIDir
@@ -251,12 +251,12 @@ func generateRenderData(operatorNetwork *ocoperv1.Network, operConfig *operatorv
 	return &renderData
 }
 
-func (c *ConfigK8s) GenerateRenderData(operatorNetwork *ocoperv1.Network, operConfig *operatorv1.AntreaInstall) (*render.RenderData, error) {
+func (c *ConfigK8s) GenerateRenderData(operatorNetwork *ocoperv1.Network, operConfig *operatorv1.Loxilight) (*render.RenderData, error) {
 	renderData := generateRenderData(operatorNetwork, operConfig)
 	return renderData, nil
 }
 
-func (c *ConfigOc) GenerateRenderData(operatorNetwork *ocoperv1.Network, operConfig *operatorv1.AntreaInstall) (*render.RenderData, error) {
+func (c *ConfigOc) GenerateRenderData(operatorNetwork *ocoperv1.Network, operConfig *operatorv1.Loxilight) (*render.RenderData, error) {
 	renderData := generateRenderData(operatorNetwork, operConfig)
 	return renderData, nil
 }
