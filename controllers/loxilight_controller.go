@@ -31,6 +31,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	netloxv1alpha1 "github.com/netlox-dev/loxilight-operator/api/v1alpha1"
+	configutil "github.com/netlox-dev/loxilight-operator/controllers/config"
 	operatortypes "github.com/netlox-dev/loxilight-operator/controllers/types"
 	"github.com/openshift/cluster-network-operator/pkg/apply"
 	"github.com/openshift/cluster-network-operator/pkg/controller/statusmanager"
@@ -44,6 +45,7 @@ import (
 type LoxilightReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Config configutil.Config
 }
 
 func isOperatorRequest(request ctrl.Request) bool {
@@ -69,10 +71,10 @@ func isOperatorRequest(request ctrl.Request) bool {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *LoxilightReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *LoxilightReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 
-	if !isOperatorRequest(req) {
+	if !isOperatorRequest(request) {
 		return ctrl.Result{}, nil
 	}
 
@@ -90,10 +92,11 @@ func (r *LoxilightReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Apply configuration.
-	if result, err := applyConfig(r, k8s.Config, nil, operConfig, nil); err != nil {
+	if result, err := applyConfig(r, r.Config, nil, operConfig, nil); err != nil {
 		return result, err
 	}
 
+	// TODO: Start Here
 	r.Status.SetNotDegraded(statusmanager.ClusterConfig)
 	r.Status.SetNotDegraded(statusmanager.OperatorConfig)
 
