@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	netloxv1alpha1 "github.com/example/memcached-operator/api/v1alpha1"
+	netloxv1alpha1 "github.com/netlox-dev/loxilight-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
