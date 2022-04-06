@@ -1,0 +1,6 @@
+apiVersion: netlox.netlox.io/v1alpha1
+kind: Loxilight
+metadata:
+  name: loxilight-sample
+spec:
+  # TODO(user): Add fields here
