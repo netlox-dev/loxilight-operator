@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	configv1 "github.com/openshift/api/config/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,19 +29,44 @@ type LoxilightSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Label is the value of the 'daemon=' label to set on a node that should run the daemon
-	Label string `json:"label"`
+	// LoxilightAgentConfig holds the configurations for Loxilight-agent.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +required
+	LoxilightAgentConfig string `json:"loxilightAgentConfig"`
 
-	// Image is the Docker image to run for the daemon
-	Image string `json:"image"`
+	// LoxilightCNIConfig holds the configuration of CNI.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +required
+	LoxilightCNIConfig string `json:"loxilightCNIConfig"`
+
+	// LoxilightControllerConfig holds the configurations for Loxilight-controller.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +required
+	LoxilightControllerConfig string `json:"loxilightControllerConfig"`
+
+	// LoxilightPlatform is the platform on which Loxilight will be deployed.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +required
+	LoxilightPlatform string `json:"loxilightPlatform"`
+
+	// LoxilightImage is the Docker image name used by Loxilight-agent and Loxilight-controller.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +optional
+	LoxilightImage string `json:"loxilightImage,omitempty"`
 }
+
+// +kubebuilder:object:generate=false
+type InstallCondition = configv1.ClusterOperatorStatusCondition
 
 // LoxilightStatus defines the observed state of Loxilight
 type LoxilightStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	// Count is the number of nodes the daemon is deployed to
-	Count int32 `json:"count"`
+
+	// Conditions describes the state of Antrea installation.
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	Conditions []InstallCondition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
