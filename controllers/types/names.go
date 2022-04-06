@@ -1,34 +1,31 @@
-/* Copyright © 2020 VMware, Inc. All Rights Reserved.
-   SPDX-License-Identifier: Apache-2.0 */
-
 package types
 
 const (
-	AntreaClusterOperatorName = "antrea"
-	AntreaImageRenderKey      = "AntreaImage"
-	ReleaseVersion            = "ReleaseVersion"
+	LoxilightClusterOperatorName = "loxilight"
+	LoxilightImageRenderKey      = "LoxilightImage"
+	ReleaseVersion               = "ReleaseVersion"
 
-	AntreaAgentConfigOption    = "antrea-agent.conf"
-	AntreaAgentConfigRenderKey = "AntreaAgentConfig"
+	LoxilightAgentConfigOption    = "loxilight-agent.conf"
+	LoxilightAgentConfigRenderKey = "LoxilightAgentConfig"
 
-	AntreaCNIConfigOption    = "antrea-cni.conflist"
-	AntreaCNIConfigRenderKey = "AntreaCNIConfig"
+	LoxilightCNIConfigOption    = "loxilight-cni.conflist"
+	LoxilightCNIConfigRenderKey = "LoxilightCNIConfig"
 
-	AntreaControllerConfigOption    = "antrea-controller.conf"
-	AntreaControllerConfigRenderKey = "AntreaControllerConfig"
+	LoxilightControllerConfigOption    = "loxilight-controller.conf"
+	LoxilightControllerConfigRenderKey = "LoxilightControllerConfig"
 
 	ServiceCIDROption = "serviceCIDR"
 	DefaultMTUOption  = "defaultMTU"
 
-	OperatorNameSpace          = "antrea-operator"
+	OperatorNameSpace          = "loxilight-operator"
 	ClusterConfigName          = "cluster"
-	OperatorConfigName         = "antrea-install"
+	OperatorConfigName         = "loxilight-install"
 	ClusterOperatorNetworkName = "cluster"
 
-	AntreaNamespace                = "kube-system"
-	AntreaAgentDaemonSetName       = "antrea-agent"
-	AntreaControllerDeploymentName = "antrea-controller"
-	AntreaConfigMapName            = "antrea-config"
+	LoxilightNamespace                = "kube-system"
+	LoxilightAgentDaemonSetName       = "loxilight-agent"
+	LoxilightControllerDeploymentName = "loxilight-controller"
+	LoxilightConfigMapName            = "loxilight-config"
 
 	CNIConfDirRenderKey = "CNIConfDir"
 	CNIBinDirRenderKey  = "CNIBinDir"
