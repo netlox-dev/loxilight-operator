@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	netloxv1alpha1 "github.com/example/memcached-operator/api/v1alpha1"
-	"github.com/example/memcached-operator/controllers"
+	netloxv1alpha1 "github.com/netlox-dev/loxilight-operator/api/v1alpha1"
+	"github.com/netlox-dev/loxilight-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
 

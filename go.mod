@@ -1,4 +1,4 @@
-module github.com/example/memcached-operator
+module github.com/netlox-dev/loxilight-operator
 
 go 1.17
 
