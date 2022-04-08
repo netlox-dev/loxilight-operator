@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,8 +45,10 @@ import (
 	"github.com/openshift/cluster-network-operator/pkg/apply"
 	"github.com/openshift/cluster-network-operator/pkg/controller/statusmanager"
 	"github.com/openshift/cluster-network-operator/pkg/render"
+	k8sutil "github.com/openshift/cluster-network-operator/pkg/util/k8s"
 
 	configv1 "github.com/openshift/api/config/v1"
+	ocoperv1 "github.com/openshift/api/operator/v1"
 )
 
 var log = ctrl.Log.WithName("controllers")
@@ -95,7 +98,7 @@ func (k8s *AdaptorK8s) Reconcile(r *LoxilightReconciler, request ctrl.Request) (
 		return reconcile.Result{}, nil
 	}
 
-	// Fetch antrea-install CR.
+	// Fetch loxilight-install CR.
 	operConfig, err, found, change := fetchLoxilight(r, request)
 	if err != nil && !found {
 		return reconcile.Result{}, nil
@@ -159,7 +162,7 @@ func (oc *AdaptorOc) Reconcile(r *LoxilightReconciler, request ctrl.Request) (re
 		return reconcile.Result{Requeue: true}, err
 	}
 
-	// Fetch antrea-install CR.
+	// Fetch loxilight-install CR.
 	operConfig, err, found, change := fetchLoxilight(r, request)
 	if err != nil && !found {
 		return reconcile.Result{}, nil
@@ -223,7 +226,7 @@ func (r *LoxilightReconciler) getAppliedOperConfig() (*netloxv1alpha1.Loxilight,
 	operConfig := &netloxv1alpha1.Loxilight{}
 	var loxilightConfig *corev1.ConfigMap
 	configList := &corev1.ConfigMapList{}
-	label := map[string]string{"app": "antrea"}
+	label := map[string]string{"app": "loxilight"}
 	if err := r.Client.List(context.TODO(), configList, client.InNamespace(operatortypes.LoxilightNamespace), client.MatchingLabels(label)); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, nil
@@ -238,7 +241,7 @@ func (r *LoxilightReconciler) getAppliedOperConfig() (*netloxv1alpha1.Loxilight,
 		}
 	}
 	if loxilightConfig == nil {
-		log.Info("no antrea-config found")
+		log.Info("no loxilight-config found")
 		return nil, nil
 	}
 	loxilightControllerDeployment := appsv1.Deployment{}
@@ -258,6 +261,17 @@ func (r *LoxilightReconciler) getAppliedOperConfig() (*netloxv1alpha1.Loxilight,
 	}
 	operConfig.Spec = operConfigSpec
 	return operConfig, nil
+}
+
+func deleteExistingPods(c client.Client, component string) error {
+	var period int64 = 0
+	policy := metav1.DeletePropagationBackground
+	label := map[string]string{"component": component}
+	err := c.DeleteAllOf(context.TODO(), &corev1.Pod{}, client.InNamespace(operatortypes.LoxilightNamespace), client.MatchingLabels(label), client.PropagationPolicy(policy), client.GracePeriodSeconds(period))
+	if err != nil {
+		log.Error(err, fmt.Sprintf("failed to delete pods for component: %s", component))
+	}
+	return err
 }
 
 func applyConfig(r *LoxilightReconciler, config configutil.Config, clusterConfig *configv1.Network, operConfig *netloxv1alpha1.Loxilight, operatorNetwork *ocoperv1.Network) (reconcile.Result, error) {
@@ -318,17 +332,17 @@ func applyConfig(r *LoxilightReconciler, config configutil.Config, clusterConfig
 			}
 		}
 
-		// Delete old antrea-agent and antrea-controller pods.
+		// Delete old loxlight-agent and loxlight-controller pods.
 		if r.AppliedOperConfig != nil && agentNeedChange && !imageChange {
-			if err = deleteExistingPods(r.Client, operatortypes.AntreaAgentDaemonSetName); err != nil {
-				msg := fmt.Sprintf("DaemonSet %s is not using the latest configuration updates because: %v", operatortypes.AntreaAgentDaemonSetName, err)
+			if err = deleteExistingPods(r.Client, operatortypes.LoxilightAgentDaemonSetName); err != nil {
+				msg := fmt.Sprintf("DaemonSet %s is not using the latest configuration updates because: %v", operatortypes.LoxilightAgentDaemonSetName, err)
 				r.Status.SetDegraded(statusmanager.OperatorConfig, "DeleteOldPodsError", msg)
 				return reconcile.Result{Requeue: true}, err
 			}
 		}
 		if r.AppliedOperConfig != nil && controllerNeedChange && !imageChange {
-			if err = deleteExistingPods(r.Client, operatortypes.AntreaControllerDeploymentName); err != nil {
-				msg := fmt.Sprintf("Deployment %s is not using the latest configuration updates because: %v", operatortypes.AntreaControllerDeploymentName, err)
+			if err = deleteExistingPods(r.Client, operatortypes.LoxilightControllerDeploymentName); err != nil {
+				msg := fmt.Sprintf("Deployment %s is not using the latest configuration updates because: %v", operatortypes.LoxilightControllerDeploymentName, err)
 				r.Status.SetDegraded(statusmanager.OperatorConfig, "DeleteOldPodsError", msg)
 				return reconcile.Result{Requeue: true}, err
 			}
@@ -383,6 +397,29 @@ func (r *LoxilightReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+func updateNetworkStatus(c client.Client, clusterConfig *configv1.Network, defaultMTU int) error {
+	status := configutil.BuildNetworkStatus(clusterConfig, defaultMTU)
+	clusterConfig.Status = *status
+	data, err := k8sutil.ToUnstructured(clusterConfig)
+	if err != nil {
+		log.Error(err, "Failed to render configurations")
+		return err
+	}
+
+	if data != nil {
+		if err := apply.ApplyObject(context.TODO(), c, data); err != nil {
+			log.Error(err, fmt.Sprintf("Could not apply (%s) %s/%s", data.GroupVersionKind(),
+				data.GetNamespace(), data.GetName()))
+			return err
+		}
+	} else {
+		log.Error(err, "Retrieved data for updating network status is empty.")
+		return err
+	}
+	log.Info("Successfully updated Network Status")
+	return nil
+}
+
 func updateStatusManagerAndSharedInfo(r *LoxilightReconciler, objs []*uns.Unstructured, clusterConfig *configv1.Network) error {
 	var daemonSets, deployments []types.NamespacedName
 	var relatedObjects []configv1.ObjectReference
@@ -417,10 +454,10 @@ func updateStatusManagerAndSharedInfo(r *LoxilightReconciler, objs []*uns.Unstru
 	if daemonSetObject == nil || deploymentObject == nil {
 		var missedResources []string
 		if daemonSetObject == nil {
-			missedResources = append(missedResources, fmt.Sprintf("DaemonSet: %s", operatortypes.AntreaAgentDaemonSetName))
+			missedResources = append(missedResources, fmt.Sprintf("DaemonSet: %s", operatortypes.LoxilightAgentDaemonSetName))
 		}
 		if deploymentObject == nil {
-			missedResources = append(missedResources, fmt.Sprintf("Deployment: %s", operatortypes.AntreaControllerDeploymentName))
+			missedResources = append(missedResources, fmt.Sprintf("Deployment: %s", operatortypes.LoxilightControllerDeploymentName))
 		}
 		err := fmt.Errorf("configuration of resources %v is missing", missedResources)
 		log.Error(nil, err.Error())
