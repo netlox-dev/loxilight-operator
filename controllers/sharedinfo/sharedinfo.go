@@ -19,9 +19,9 @@ var log = logf.Log.WithName("shared_info")
 type SharedInfo struct {
 	sync.Mutex
 
-	AntreaPlatform                 string
-	AntreaAgentDaemonSetSpec       *unstructured.Unstructured
-	AntreaControllerDeploymentSpec *unstructured.Unstructured
+	LoxilightPlatform                 string
+	LoxilightAgentDaemonSetSpec       *unstructured.Unstructured
+	LoxilightControllerDeploymentSpec *unstructured.Unstructured
 }
 
 func New(mgr manager.Manager) (*SharedInfo, error) {
@@ -33,7 +33,7 @@ func New(mgr manager.Manager) (*SharedInfo, error) {
 	loxilight := &netloxv1alpha1.Loxilight{}
 	err := reader.Get(context.TODO(), loxilightName, loxilight)
 	if err != nil {
-		log.Error(err, "failed to get antrea-install", "namespace", operatortypes.OperatorNameSpace, "name", operatortypes.OperatorConfigName)
+		log.Error(err, "failed to get loxilight", "namespace", operatortypes.OperatorNameSpace, "name", operatortypes.OperatorConfigName)
 		return nil, err
 	}
 	switch loxilight.Spec.LoxilightPlatform {

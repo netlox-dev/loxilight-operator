@@ -20,14 +20,19 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -72,14 +77,126 @@ func (oc *AdaptorOc) SetupWithManager(r *LoxilightReconciler, mgr ctrl.Manager) 
 		Complete(r)
 }
 
-func isOperatorRequest(request ctrl.Request) bool {
+func isOperatorRequest(r *LoxilightReconciler, request ctrl.Request) bool {
+	reqLogger := r.Log.WithValues("Request.NamespacedName", request.NamespacedName)
 	if request.Namespace == "" && request.Name == operatortypes.ClusterConfigName {
+		reqLogger.Info("Reconciling loxilight-operator Cluster Network CR change")
 		return true
 	}
 	if request.Namespace == operatortypes.OperatorNameSpace && request.Name == operatortypes.OperatorConfigName {
+		reqLogger.Info("Reconciling loxilight-operator loxilight-install CR change")
 		return true
 	}
 	return false
+}
+
+func (k8s *AdaptorK8s) Reconcile(r *LoxilightReconciler, request ctrl.Request) (reconcile.Result, error) {
+	if !isOperatorRequest(r, request) {
+		return reconcile.Result{}, nil
+	}
+
+	// Fetch antrea-install CR.
+	operConfig, err, found, change := fetchLoxilight(r, request)
+	if err != nil && !found {
+		return reconcile.Result{}, nil
+	}
+	if err != nil {
+		return reconcile.Result{Requeue: true}, err
+	}
+	if !change {
+		return reconcile.Result{}, nil
+	}
+
+	// Apply configuration.
+	if result, err := applyConfig(r, k8s.Config, nil, operConfig, nil); err != nil {
+		return result, err
+	}
+
+	r.Status.SetNotDegraded(statusmanager.ClusterConfig)
+	r.Status.SetNotDegraded(statusmanager.OperatorConfig)
+
+	r.AppliedOperConfig = operConfig
+
+	return reconcile.Result{}, nil
+}
+
+func (oc *AdaptorOc) Reconcile(r *LoxilightReconciler, request ctrl.Request) (reconcile.Result, error) {
+	if !isOperatorRequest(r, request) {
+		return reconcile.Result{}, nil
+	}
+
+	// Fetch Cluster Network CR.
+	clusterConfig := &configv1.Network{}
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: operatortypes.ClusterConfigName}, clusterConfig)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := "Cluster Network CR not found"
+			log.Info(msg)
+			r.Status.SetDegraded(statusmanager.ClusterConfig, "NoClusterConfig", msg)
+			return reconcile.Result{}, nil
+		}
+		r.Status.SetDegraded(statusmanager.ClusterConfig, "InvalidClusterConfig", fmt.Sprintf("Failed to get cluster network CRD: %v", err))
+		log.Error(err, "failed to get Cluster Network CR")
+		return reconcile.Result{Requeue: true}, err
+	}
+	if request.Name == clusterConfig.Name && r.AppliedClusterConfig != nil {
+		if reflect.DeepEqual(clusterConfig.Spec, r.AppliedClusterConfig.Spec) {
+			log.Info("no configuration change")
+			return reconcile.Result{}, nil
+		}
+	}
+
+	// Fetch the Network.operator.openshift.io instance
+	operatorNetwork := &ocoperv1.Network{}
+	err = r.Client.Get(context.TODO(), types.NamespacedName{Name: operatortypes.ClusterOperatorNetworkName}, operatorNetwork)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.Status.SetDegraded(statusmanager.OperatorConfig, "NoClusterNetworkOperatorConfig", fmt.Sprintf("Cluster network operator configuration not found"))
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		log.Error(err, "Unable to retrieve Network.operator.openshift.io object")
+		return reconcile.Result{Requeue: true}, err
+	}
+
+	// Fetch antrea-install CR.
+	operConfig, err, found, change := fetchLoxilight(r, request)
+	if err != nil && !found {
+		return reconcile.Result{}, nil
+	}
+	if err != nil {
+		return reconcile.Result{Requeue: true}, err
+	}
+	if !change {
+		return reconcile.Result{}, nil
+	}
+
+	// Apply configuration.
+	if result, err := applyConfig(r, oc.Config, clusterConfig, operConfig, operatorNetwork); err != nil {
+		return result, err
+	}
+
+	// Update cluster network CR status.
+	clusterNetworkConfigChanged := configutil.HasClusterNetworkConfigChange(r.AppliedClusterConfig, clusterConfig)
+	defaultMTUChanged, curDefaultMTU, err := configutil.HasDefaultMTUChange(r.AppliedOperConfig, operConfig)
+	if err != nil {
+		r.Status.SetDegraded(statusmanager.OperatorConfig, "UpdateNetworkStatusError", fmt.Sprintf("failed to check default MTU configuration: %v", err))
+		return reconcile.Result{Requeue: true}, err
+	}
+	if clusterNetworkConfigChanged || defaultMTUChanged {
+		if err = updateNetworkStatus(r.Client, clusterConfig, curDefaultMTU); err != nil {
+			r.Status.SetDegraded(statusmanager.ClusterConfig, "UpdateNetworkStatusError", fmt.Sprintf("Failed to update network status: %v", err))
+			return reconcile.Result{Requeue: true}, err
+		}
+	}
+
+	r.Status.SetNotDegraded(statusmanager.ClusterConfig)
+	r.Status.SetNotDegraded(statusmanager.OperatorConfig)
+
+	r.AppliedClusterConfig = clusterConfig
+	r.AppliedOperConfig = operConfig
+
+	return reconcile.Result{}, nil
 }
 
 //+kubebuilder:rbac:groups=netlox.netlox.io,resources=loxilights,verbs=get;list;watch;create;update;patch;delete
@@ -96,40 +213,54 @@ func isOperatorRequest(request ctrl.Request) bool {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *LoxilightReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	log := ctrllog.FromContext(ctx)
-
-	if !isOperatorRequest(request) {
-		return ctrl.Result{}, nil
-	}
-
-	// Fetch loxilight CR.
-	operConfig, err, found, change := fetchLoxilight(r, request)
-	if err != nil && !found {
-		log.Error(err, "Failed to get Loxilight CR")
-		return reconcile.Result{}, nil
-	}
-	if err != nil {
-		return reconcile.Result{Requeue: true}, err
-	}
-	if !change {
-		return reconcile.Result{}, nil
-	}
-
-	// Apply configuration.
-	if result, err := applyConfig(r, r.Config, nil, operConfig, nil); err != nil {
-		return result, err
-	}
-
-	// TODO: Start Here
-	r.Status.SetNotDegraded(statusmanager.ClusterConfig)
-	r.Status.SetNotDegraded(statusmanager.OperatorConfig)
-
-	r.AppliedOperConfig = operConfig
-
-	return ctrl.Result{}, nil
+	return r.Adaptor.Reconcile(r, request)
 }
 
-func applyConfig(r *LoxilightReconciler, config configutil.Config, clusterConfig *configv1.Network, operConfig *netloxv1alpha1.AntreaInstall, operatorNetwork *ocoperv1.Network) (reconcile.Result, error) {
+func (r *LoxilightReconciler) getAppliedOperConfig() (*netloxv1alpha1.Loxilight, error) {
+	if r.AppliedOperConfig != nil {
+		return r.AppliedOperConfig, nil
+	}
+	operConfig := &netloxv1alpha1.Loxilight{}
+	var loxilightConfig *corev1.ConfigMap
+	configList := &corev1.ConfigMapList{}
+	label := map[string]string{"app": "antrea"}
+	if err := r.Client.List(context.TODO(), configList, client.InNamespace(operatortypes.LoxilightNamespace), client.MatchingLabels(label)); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		} else {
+			return nil, err
+		}
+	}
+	for i := range configList.Items {
+		if strings.HasPrefix(configList.Items[i].Name, operatortypes.LoxilightConfigMapName) {
+			loxilightConfig = &configList.Items[i]
+			break
+		}
+	}
+	if loxilightConfig == nil {
+		log.Info("no antrea-config found")
+		return nil, nil
+	}
+	loxilightControllerDeployment := appsv1.Deployment{}
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Namespace: operatortypes.LoxilightNamespace, Name: operatortypes.LoxilightControllerDeploymentName}, &loxilightControllerDeployment); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		} else {
+			return nil, err
+		}
+	}
+	image := loxilightControllerDeployment.Spec.Template.Spec.Containers[0].Image
+	operConfigSpec := netloxv1alpha1.LoxilightSpec{
+		LoxilightAgentConfig:      loxilightConfig.Data[operatortypes.LoxilightAgentConfigOption],
+		LoxilightCNIConfig:        loxilightConfig.Data[operatortypes.LoxilightCNIConfigOption],
+		LoxilightControllerConfig: loxilightConfig.Data[operatortypes.LoxilightControllerConfigOption],
+		LoxilightImage:            image,
+	}
+	operConfig.Spec = operConfigSpec
+	return operConfig, nil
+}
+
+func applyConfig(r *LoxilightReconciler, config configutil.Config, clusterConfig *configv1.Network, operConfig *netloxv1alpha1.Loxilight, operatorNetwork *ocoperv1.Network) (reconcile.Result, error) {
 	// Fill default configurations.
 	if err := config.FillConfigs(clusterConfig, operConfig); err != nil {
 		log.Error(err, "failed to fill configurations")
@@ -206,19 +337,19 @@ func applyConfig(r *LoxilightReconciler, config configutil.Config, clusterConfig
 	return reconcile.Result{}, nil
 }
 
-func fetchLoxilight(r *LoxilightReconciler, request ctrl.Request) (*netloxv1alpha1.AntreaInstall, error, bool, bool) {
-	// Fetch antrea-install CR.
-	operConfig := &netloxv1alpha1.AntreaInstall{}
+func fetchLoxilight(r *LoxilightReconciler, request ctrl.Request) (*netloxv1alpha1.Loxilight, error, bool, bool) {
+	// Fetch loxilight-install CR.
+	operConfig := &netloxv1alpha1.Loxilight{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Namespace: operatortypes.OperatorNameSpace, Name: operatortypes.OperatorConfigName}, operConfig)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("%s CR not found", operatortypes.OperatorConfigName)
 			log.Info(msg)
-			r.Status.SetDegraded(statusmanager.ClusterConfig, "NoAntreaInstallCR", msg)
+			r.Status.SetDegraded(statusmanager.ClusterConfig, "NoLoxilightCR", msg)
 			return nil, err, false, false
 		}
-		log.Error(err, "failed to get antrea-install CR")
-		r.Status.SetDegraded(statusmanager.OperatorConfig, "InvalidAntreaInstallCR", fmt.Sprintf("Failed to get operator CR: %v", err))
+		log.Error(err, "failed to get loxilight-install CR")
+		r.Status.SetDegraded(statusmanager.OperatorConfig, "InvalidloxilightInstallCR", fmt.Sprintf("Failed to get operator CR: %v", err))
 		return nil, err, true, false
 	}
 	if request.Name == operConfig.Name && r.AppliedOperConfig != nil {
@@ -242,7 +373,7 @@ type LoxilightReconciler struct {
 
 	SharedInfo           *sharedinfo.SharedInfo
 	AppliedClusterConfig *configv1.Network
-	AppliedOperConfig    *operatorv1.Loxilight
+	AppliedOperConfig    *netloxv1alpha1.Loxilight
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -250,4 +381,64 @@ func (r *LoxilightReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&netloxv1alpha1.Loxilight{}).
 		Complete(r)
+}
+
+func updateStatusManagerAndSharedInfo(r *LoxilightReconciler, objs []*uns.Unstructured, clusterConfig *configv1.Network) error {
+	var daemonSets, deployments []types.NamespacedName
+	var relatedObjects []configv1.ObjectReference
+	var daemonSetObject, deploymentObject *uns.Unstructured
+	for _, obj := range objs {
+		if obj.GetAPIVersion() == "apps/v1" && obj.GetKind() == "DaemonSet" {
+			daemonSets = append(daemonSets, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()})
+			daemonSetObject = obj
+		} else if obj.GetAPIVersion() == "apps/v1" && obj.GetKind() == "Deployment" {
+			deployments = append(deployments, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()})
+			deploymentObject = obj
+		}
+		restMapping, err := r.Mapper.RESTMapping(obj.GroupVersionKind().GroupKind())
+		if err != nil {
+			log.Error(err, "failed to get REST mapping for storing related object")
+			continue
+		}
+		relatedObjects = append(relatedObjects, configv1.ObjectReference{
+			Group:     obj.GetObjectKind().GroupVersionKind().Group,
+			Resource:  restMapping.Resource.Resource,
+			Name:      obj.GetName(),
+			Namespace: obj.GetNamespace(),
+		})
+		if clusterConfig != nil {
+			if err := controllerutil.SetControllerReference(clusterConfig, obj, r.Scheme); err != nil {
+				log.Error(err, "failed to set owner reference", "resource", obj.GetName())
+				r.Status.SetDegraded(statusmanager.OperatorConfig, "ApplyObjectsError", fmt.Sprintf("Failed to set owner reference: %v", err))
+				return err
+			}
+		}
+	}
+	if daemonSetObject == nil || deploymentObject == nil {
+		var missedResources []string
+		if daemonSetObject == nil {
+			missedResources = append(missedResources, fmt.Sprintf("DaemonSet: %s", operatortypes.AntreaAgentDaemonSetName))
+		}
+		if deploymentObject == nil {
+			missedResources = append(missedResources, fmt.Sprintf("Deployment: %s", operatortypes.AntreaControllerDeploymentName))
+		}
+		err := fmt.Errorf("configuration of resources %v is missing", missedResources)
+		log.Error(nil, err.Error())
+		r.Status.SetDegraded(statusmanager.OperatorConfig, "ApplyObjectsError", err.Error())
+		return err
+	}
+	r.Status.SetDaemonSets(daemonSets)
+	r.Status.SetDeployments(deployments)
+	r.Status.SetRelatedObjects(relatedObjects)
+	r.SharedInfo.LoxilightAgentDaemonSetSpec = daemonSetObject.DeepCopy()
+	r.SharedInfo.LoxilightControllerDeploymentSpec = deploymentObject.DeepCopy()
+	return nil
+}
+
+func (a *AdaptorK8s) UpdateStatusManagerAndSharedInfo(r *LoxilightReconciler, objs []*uns.Unstructured, clusterConfig *configv1.Network) error {
+	return updateStatusManagerAndSharedInfo(r, objs, clusterConfig)
+}
+
+func (a *AdaptorOc) UpdateStatusManagerAndSharedInfo(r *LoxilightReconciler, objs []*uns.Unstructured, clusterConfig *configv1.Network) error {
+	return updateStatusManagerAndSharedInfo(r, objs, clusterConfig)
 }

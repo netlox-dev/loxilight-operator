@@ -24,10 +24,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	operatorv1 "github.com/vmware/antrea-operator-for-kubernetes/api/v1"
-	"github.com/vmware/antrea-operator-for-kubernetes/controllers/sharedinfo"
-	operatortypes "github.com/vmware/antrea-operator-for-kubernetes/controllers/types"
-	"github.com/vmware/antrea-operator-for-kubernetes/version"
+	netloxv1alpha1 "github.com/netlox-dev/loxilight-operator/api/v1alpha1"
+	"github.com/netlox-dev/loxilight-operator/controllers/sharedinfo"
+	operatortypes "github.com/netlox-dev/loxilight-operator/controllers/types"
 )
 
 var log = logf.Log.WithName("status_manager")
@@ -177,7 +176,7 @@ func (status *StatusManager) setConditions(progressing []string, reachedAvailabl
 func (status *StatusManager) setClusterOperatorConditions(co *configv1.ClusterOperator, reachedAvailableLevel bool, conditions *[]configv1.ClusterOperatorStatusCondition) {
 	if reachedAvailableLevel {
 		co.Status.Versions = []configv1.OperandVersion{
-			{Name: "operator", Version: version.Version},
+			{Name: "operator", Version: "1.0.0"},
 		}
 	}
 	status.CombineConditions(&co.Status.Conditions, conditions)
@@ -204,7 +203,7 @@ func (status *StatusManager) setClusterOperatorConditions(co *configv1.ClusterOp
 // Set updates the AntreaInstall.Status with the provided conditions for platform kubernetes.
 func (adaptor *StatusK8s) set(status *StatusManager, reachedAvailableLevel bool, conditions ...configv1.ClusterOperatorStatusCondition) {
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		antreaInstall := &operatorv1.AntreaInstall{}
+		antreaInstall := &netloxv1alpha1.AntreaInstall{}
 		err := status.client.Get(context.TODO(), types.NamespacedName{Namespace: operatortypes.OperatorNameSpace, Name: operatortypes.OperatorConfigName}, antreaInstall)
 		if err != nil {
 			log.Error(err, "Failed to get antreaInstall")
@@ -266,7 +265,7 @@ func (adaptor *StatusOc) set(status *StatusManager, reachedAvailableLevel bool, 
 }
 
 func (status *StatusManager) setAntreaInstallStatus(conditions *[]configv1.ClusterOperatorStatusCondition) error {
-	antreaInstall := &operatorv1.AntreaInstall{}
+	antreaInstall := &netloxv1alpha1.AntreaInstall{}
 	err := status.client.Get(context.TODO(), types.NamespacedName{Namespace: operatortypes.OperatorNameSpace, Name: operatortypes.OperatorConfigName}, antreaInstall)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
