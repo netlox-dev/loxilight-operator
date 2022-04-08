@@ -21,31 +21,55 @@ import (
 	"fmt"
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/cloudflare/cfssl/log"
+	"github.com/go-logr/logr"
 	netloxv1alpha1 "github.com/netlox-dev/loxilight-operator/api/v1alpha1"
 	configutil "github.com/netlox-dev/loxilight-operator/controllers/config"
+	"github.com/netlox-dev/loxilight-operator/controllers/sharedinfo"
 	operatortypes "github.com/netlox-dev/loxilight-operator/controllers/types"
 	"github.com/openshift/cluster-network-operator/pkg/apply"
 	"github.com/openshift/cluster-network-operator/pkg/controller/statusmanager"
 	"github.com/openshift/cluster-network-operator/pkg/render"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	configv1 "github.com/openshift/api/config/v1"
 )
 
-// LoxilightReconciler reconciles a Loxilight object
-type LoxilightReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
+var log = ctrl.Log.WithName("controllers")
+
+type Adaptor interface {
+	SetupWithManager(r *LoxilightReconciler, mgr ctrl.Manager) error
+	Reconcile(r *LoxilightReconciler, request ctrl.Request) (reconcile.Result, error)
+	UpdateStatusManagerAndSharedInfo(r *LoxilightReconciler, objs []*uns.Unstructured, clusterConfig *configv1.Network) error
+}
+
+type AdaptorK8s struct {
 	Config configutil.Config
+}
+
+type AdaptorOc struct {
+	Config configutil.Config
+}
+
+func (k8s *AdaptorK8s) SetupWithManager(r *LoxilightReconciler, mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&netloxv1alpha1.Loxilight{}).
+		Complete(r)
+}
+
+func (oc *AdaptorOc) SetupWithManager(r *LoxilightReconciler, mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&netloxv1alpha1.Loxilight{}).
+		Watches(&source.Kind{Type: &configv1.Network{}}, &handler.EnqueueRequestForObject{}).
+		Complete(r)
 }
 
 func isOperatorRequest(request ctrl.Request) bool {
@@ -105,7 +129,7 @@ func (r *LoxilightReconciler) Reconcile(ctx context.Context, request ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
-func applyConfig(r *LoxilightReconciler, config configutil.Config, clusterConfig *configv1.Network, operConfig *operatorv1.AntreaInstall, operatorNetwork *ocoperv1.Network) (reconcile.Result, error) {
+func applyConfig(r *LoxilightReconciler, config configutil.Config, clusterConfig *configv1.Network, operConfig *netloxv1alpha1.AntreaInstall, operatorNetwork *ocoperv1.Network) (reconcile.Result, error) {
 	// Fill default configurations.
 	if err := config.FillConfigs(clusterConfig, operConfig); err != nil {
 		log.Error(err, "failed to fill configurations")
@@ -182,9 +206,9 @@ func applyConfig(r *LoxilightReconciler, config configutil.Config, clusterConfig
 	return reconcile.Result{}, nil
 }
 
-func fetchLoxilight(r *LoxilightReconciler, request ctrl.Request) (*operatorv1.AntreaInstall, error, bool, bool) {
+func fetchLoxilight(r *LoxilightReconciler, request ctrl.Request) (*netloxv1alpha1.AntreaInstall, error, bool, bool) {
 	// Fetch antrea-install CR.
-	operConfig := &operatorv1.AntreaInstall{}
+	operConfig := &netloxv1alpha1.AntreaInstall{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Namespace: operatortypes.OperatorNameSpace, Name: operatortypes.OperatorConfigName}, operConfig)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -206,43 +230,19 @@ func fetchLoxilight(r *LoxilightReconciler, request ctrl.Request) (*operatorv1.A
 	return operConfig, nil, true, true
 }
 
-func newDaemonset(cr *v1beta1.GenericDaemon) *appsv1.DaemonSet {
-	return &appsv1.DaemonSet{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "DaemonSet",
-			APIVersion: "apps/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-daemonset",
-			Namespace: cr.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(cr, schema.GroupVersionKind{
-					Group:   v1beta1.SchemeGroupVersion.Group,
-					Version: v1beta1.SchemeGroupVersion.Version,
-					Kind:    "GenericDaemon",
-				}),
-			},
-		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"daemonset": cr.Name + "-daemonset"},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"daemonset": cr.Name + "-daemonset"},
-				},
-				Spec: corev1.PodSpec{
-					NodeSelector: map[string]string{"daemon": cr.Spec.Label},
-					Containers: []corev1.Container{
-						{
-							Name:  "genericdaemon",
-							Image: cr.Spec.Image,
-						},
-					},
-				},
-			},
-		},
-	}
+// LoxilightReconciler reconciles a Loxilight object
+type LoxilightReconciler struct {
+	Client client.Client
+	Log    logr.Logger
+	Scheme *runtime.Scheme
+	Status *statusmanager.StatusManager
+	Mapper meta.RESTMapper
+
+	Adaptor
+
+	SharedInfo           *sharedinfo.SharedInfo
+	AppliedClusterConfig *configv1.Network
+	AppliedOperConfig    *operatorv1.Loxilight
 }
 
 // SetupWithManager sets up the controller with the Manager.

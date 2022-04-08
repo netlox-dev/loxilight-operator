@@ -26,19 +26,19 @@ type SharedInfo struct {
 
 func New(mgr manager.Manager) (*SharedInfo, error) {
 	reader := mgr.GetAPIReader()
-	antreaInstallName := types.NamespacedName{
+	loxilightName := types.NamespacedName{
 		Name:      operatortypes.OperatorConfigName,
 		Namespace: operatortypes.OperatorNameSpace,
 	}
-	antreaInstall := &netloxv1alpha1.AntreaInstall{}
-	err := reader.Get(context.TODO(), antreaInstallName, antreaInstall)
+	loxilight := &netloxv1alpha1.Loxilight{}
+	err := reader.Get(context.TODO(), loxilightName, loxilight)
 	if err != nil {
 		log.Error(err, "failed to get antrea-install", "namespace", operatortypes.OperatorNameSpace, "name", operatortypes.OperatorConfigName)
 		return nil, err
 	}
-	switch antreaInstall.Spec.AntreaPlatform {
+	switch loxilight.Spec.LoxilightPlatform {
 	case "openshift", "kubernetes":
-		return &SharedInfo{AntreaPlatform: antreaInstall.Spec.AntreaPlatform}, nil
+		return &SharedInfo{LoxilightPlatform: loxilight.Spec.LoxilightPlatform}, nil
 	default:
 		return nil, errors.New("invalid platform: platform should be openshift or kubernetes")
 	}
