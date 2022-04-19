@@ -1,13 +1,13 @@
-# permissions for end users to edit loxilights.
+# permissions for end users to edit memcacheds.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: loxilight-editor-role
+  name: memcached-editor-role
 rules:
 - apiGroups:
-  - netlox.netlox.io
+  - cache.example.com
   resources:
-  - loxilights
+  - memcacheds
   verbs:
   - create
   - delete
@@ -17,8 +17,8 @@ rules:
   - update
   - watch
 - apiGroups:
-  - netlox.netlox.io
+  - cache.example.com
   resources:
-  - loxilights/status
+  - memcacheds/status
   verbs:
   - get

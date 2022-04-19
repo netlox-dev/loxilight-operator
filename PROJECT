@@ -1,19 +1,19 @@
-domain: netlox.io
+domain: example.com
 layout:
 - go.kubebuilder.io/v3
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: loxilight-operator
+projectName: memcached-operator
 repo: github.com/netlox-dev/loxilight-operator
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: netlox.io
-  group: netlox
-  kind: Loxilight
-  path: github.com/netlox-dev/loxilight-operator/api/v1alpha1
+  domain: example.com
+  group: cache
+  kind: Memcached
+  path: github.com/netlox-dev/loxilight-operatorapi/v1alpha1
   version: v1alpha1
 version: "3"

@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	netloxv1alpha1 "github.com/netlox-dev/loxilight-operator/api/v1alpha1"
 	"github.com/netlox-dev/loxilight-operator/controllers"
+	cachev1alpha1 "github.com/netlox-dev/loxilight-operatorapi/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -44,7 +44,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(netloxv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(cachev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -71,18 +71,18 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "86f835c3.netlox.io",
+		LeaderElectionID:       "86f835c3.example.com",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	if err = (&controllers.LoxilightReconciler{
+	if err = (&controllers.MemcachedReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Loxilight")
+		setupLog.Error(err, "unable to create controller", "controller", "Memcached")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
