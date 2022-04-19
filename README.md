@@ -64,3 +64,5 @@ https://sdk.operatorframework.io/docs/building-operators/golang/tutorial/
 https://www.youtube.com/watch?v=Uu9fwiJBckw&t=5529s
 
 https://github.com/jdob/visitors-operator
+
+https://github.com/vmware/antrea-operator-for-kubernetes
