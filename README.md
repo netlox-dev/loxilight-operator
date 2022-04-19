@@ -56,3 +56,11 @@ $ kubectl delete -f config/samples/cache_v1alpha1_loxilightd.yaml
 ```
 $ make undeploy
 ```
+
+## Referecnes
+---
+https://sdk.operatorframework.io/docs/building-operators/golang/tutorial/
+
+https://www.youtube.com/watch?v=Uu9fwiJBckw&t=5529s
+
+https://github.com/jdob/visitors-operator
