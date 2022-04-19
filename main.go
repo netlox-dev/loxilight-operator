@@ -71,7 +71,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "86f835c3.example.com",
+		LeaderElectionID:       "86f835c3.netlox.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

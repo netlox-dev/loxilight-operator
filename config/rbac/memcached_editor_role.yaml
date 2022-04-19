@@ -5,7 +5,7 @@ metadata:
   name: memcached-editor-role
 rules:
 - apiGroups:
-  - cache.example.com
+  - cache.netlox.io
   resources:
   - memcacheds
   verbs:
@@ -17,7 +17,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - cache.example.com
+  - cache.netlox.io
   resources:
   - memcacheds/status
   verbs:

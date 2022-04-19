@@ -1,4 +1,4 @@
-domain: example.com
+domain: netlox.io
 layout:
 - go.kubebuilder.io/v3
 plugins:
@@ -11,7 +11,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: example.com
+  domain: netlox.io
   group: cache
   kind: Memcached
   path: github.com/netlox-dev/loxilight-operatorapi/v1alpha1

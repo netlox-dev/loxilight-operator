@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: memcacheds.cache.example.com
+  name: memcacheds.cache.netlox.io
 spec:
-  group: cache.example.com
+  group: cache.netlox.io
   names:
     kind: Memcached
     listKind: MemcachedList
