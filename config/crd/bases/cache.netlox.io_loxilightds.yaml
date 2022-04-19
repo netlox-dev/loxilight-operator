@@ -18,7 +18,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Loxilightd is the Schema for the loxilightds API
+        description: Loxilightd is the Schema for the memcacheds API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
