@@ -23,8 +23,8 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// MemcachedSpec defines the desired state of Memcached
-type MemcachedSpec struct {
+// LoxilightdSpec defines the desired state of Loxilightd
+type LoxilightdSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
@@ -32,8 +32,8 @@ type MemcachedSpec struct {
 	Title string `json:"title"`
 }
 
-// MemcachedStatus defines the observed state of Memcached
-type MemcachedStatus struct {
+// LoxilightdStatus defines the observed state of Loxilightd
+type LoxilightdStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	BackendImage  string `json:"backendImage"`
@@ -43,24 +43,24 @@ type MemcachedStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Memcached is the Schema for the memcacheds API
-type Memcached struct {
+// Loxilightd is the Schema for the memcacheds API
+type Loxilightd struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   MemcachedSpec   `json:"spec,omitempty"`
-	Status MemcachedStatus `json:"status,omitempty"`
+	Spec   LoxilightdSpec   `json:"spec,omitempty"`
+	Status LoxilightdStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// MemcachedList contains a list of Memcached
-type MemcachedList struct {
+// LoxilightdList contains a list of Memcached
+type LoxilightdList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Memcached `json:"items"`
+	Items           []Loxilightd `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Memcached{}, &MemcachedList{})
+	SchemeBuilder.Register(&Loxilightd{}, &LoxilightdList{})
 }

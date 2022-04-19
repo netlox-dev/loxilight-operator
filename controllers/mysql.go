@@ -24,7 +24,7 @@ func mysqlAuthName() string {
 	return "mysql-auth"
 }
 
-func (r *MemcachedReconciler) mysqlAuthSecret(v *cachev1alpha1.Memcached) *corev1.Secret {
+func (r *LoxilightdReconciler) mysqlAuthSecret(v *cachev1alpha1.Loxilightd) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mysqlAuthName(),
@@ -40,7 +40,7 @@ func (r *MemcachedReconciler) mysqlAuthSecret(v *cachev1alpha1.Memcached) *corev
 	return secret
 }
 
-func (r *MemcachedReconciler) mysqlDeployment(v *cachev1alpha1.Memcached) *appsv1.Deployment {
+func (r *LoxilightdReconciler) mysqlDeployment(v *cachev1alpha1.Loxilightd) *appsv1.Deployment {
 	labels := labels(v, "mysql")
 	size := int32(1)
 
@@ -108,7 +108,7 @@ func (r *MemcachedReconciler) mysqlDeployment(v *cachev1alpha1.Memcached) *appsv
 	return dep
 }
 
-func (r *MemcachedReconciler) mysqlService(v *cachev1alpha1.Memcached) *corev1.Service {
+func (r *LoxilightdReconciler) mysqlService(v *cachev1alpha1.Loxilightd) *corev1.Service {
 	labels := labels(v, "mysql")
 
 	s := &corev1.Service{
@@ -130,7 +130,7 @@ func (r *MemcachedReconciler) mysqlService(v *cachev1alpha1.Memcached) *corev1.S
 }
 
 // Returns whether or not the MySQL deployment is running
-func (r *MemcachedReconciler) isMysqlUp(v *cachev1alpha1.Memcached) bool {
+func (r *LoxilightdReconciler) isMysqlUp(v *cachev1alpha1.Loxilightd) bool {
 	deployment := &appsv1.Deployment{}
 
 	err := r.Client.Get(context.TODO(), types.NamespacedName{

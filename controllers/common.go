@@ -12,8 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func (r *MemcachedReconciler) ensureDeployment(request reconcile.Request,
-	instance *cachev1alpha1.Memcached,
+func (r *LoxilightdReconciler) ensureDeployment(request reconcile.Request,
+	instance *cachev1alpha1.Loxilightd,
 	dep *appsv1.Deployment,
 ) (*reconcile.Result, error) {
 
@@ -46,8 +46,8 @@ func (r *MemcachedReconciler) ensureDeployment(request reconcile.Request,
 	return nil, nil
 }
 
-func (r *MemcachedReconciler) ensureService(request reconcile.Request,
-	instance *cachev1alpha1.Memcached,
+func (r *LoxilightdReconciler) ensureService(request reconcile.Request,
+	instance *cachev1alpha1.Loxilightd,
 	s *corev1.Service,
 ) (*reconcile.Result, error) {
 	found := &corev1.Service{}
@@ -78,8 +78,8 @@ func (r *MemcachedReconciler) ensureService(request reconcile.Request,
 	return nil, nil
 }
 
-func (r *MemcachedReconciler) ensureSecret(request reconcile.Request,
-	instance *cachev1alpha1.Memcached,
+func (r *LoxilightdReconciler) ensureSecret(request reconcile.Request,
+	instance *cachev1alpha1.Loxilightd,
 	s *corev1.Secret,
 ) (*reconcile.Result, error) {
 	found := &corev1.Secret{}
@@ -109,7 +109,7 @@ func (r *MemcachedReconciler) ensureSecret(request reconcile.Request,
 	return nil, nil
 }
 
-func labels(v *cachev1alpha1.Memcached, tier string) map[string]string {
+func labels(v *cachev1alpha1.Loxilightd, tier string) map[string]string {
 	return map[string]string{
 		"app":             "visitors",
 		"visitorssite_cr": v.Name,

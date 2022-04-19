@@ -31,36 +31,36 @@ import (
 	cachev1alpha1 "github.com/netlox-dev/loxilight-operatorapi/v1alpha1"
 )
 
-// MemcachedReconciler reconciles a Memcached object
-type MemcachedReconciler struct {
+// LoxilightdReconciler reconciles a Loxilightd object
+type LoxilightdReconciler struct {
 	Client client.Client
 	Scheme *runtime.Scheme
 }
 
-var log = logf.Log.WithName("controller_memcached")
+var log = logf.Log.WithName("controller_loxilightd")
 
-//+kubebuilder:rbac:groups=cache.netlox.io,resources=memcacheds,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=cache.netlox.io,resources=memcacheds/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=cache.netlox.io,resources=memcacheds/finalizers,verbs=update
+//+kubebuilder:rbac:groups=cache.netlox.io,resources=loxilightds,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=cache.netlox.io,resources=loxilightds/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=cache.netlox.io,resources=loxilightds/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the Memcached object against the actual cluster state, and then
+// the Loxilightd object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *LoxilightdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// _ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
 	reqLogger := log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-	reqLogger.Info("Reconciling VisitorsApp")
+	reqLogger.Info("Reconciling Loxilight App")
 
 	// Fetch the VisitorsApp instance
-	v := &cachev1alpha1.Memcached{}
+	v := &cachev1alpha1.Loxilightd{}
 	err := r.Client.Get(context.TODO(), req.NamespacedName, v)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -150,8 +150,8 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MemcachedReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *LoxilightdReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&cachev1alpha1.Memcached{}).
+		For(&cachev1alpha1.Loxilightd{}).
 		Complete(r)
 }

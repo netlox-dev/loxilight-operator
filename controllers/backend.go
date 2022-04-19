@@ -19,15 +19,15 @@ const backendPort = 8000
 const backendServicePort = 30685
 const backendImage = "jdob/visitors-service:1.0.0"
 
-func backendDeploymentName(v *cachev1alpha1.Memcached) string {
+func backendDeploymentName(v *cachev1alpha1.Loxilightd) string {
 	return v.Name + "-backend"
 }
 
-func backendServiceName(v *cachev1alpha1.Memcached) string {
+func backendServiceName(v *cachev1alpha1.Loxilightd) string {
 	return v.Name + "-backend-service"
 }
 
-func (r *MemcachedReconciler) backendDeployment(v *cachev1alpha1.Memcached) *appsv1.Deployment {
+func (r *LoxilightdReconciler) backendDeployment(v *cachev1alpha1.Loxilightd) *appsv1.Deployment {
 	labels := labels(v, "backend")
 	size := v.Spec.Size
 
@@ -96,7 +96,7 @@ func (r *MemcachedReconciler) backendDeployment(v *cachev1alpha1.Memcached) *app
 	return dep
 }
 
-func (r *MemcachedReconciler) backendService(v *cachev1alpha1.Memcached) *corev1.Service {
+func (r *LoxilightdReconciler) backendService(v *cachev1alpha1.Loxilightd) *corev1.Service {
 	labels := labels(v, "backend")
 
 	s := &corev1.Service{
@@ -120,13 +120,13 @@ func (r *MemcachedReconciler) backendService(v *cachev1alpha1.Memcached) *corev1
 	return s
 }
 
-func (r *MemcachedReconciler) updateBackendStatus(v *cachev1alpha1.Memcached) error {
+func (r *LoxilightdReconciler) updateBackendStatus(v *cachev1alpha1.Loxilightd) error {
 	v.Status.BackendImage = backendImage
 	err := r.Client.Status().Update(context.TODO(), v)
 	return err
 }
 
-func (r *MemcachedReconciler) handleBackendChanges(v *cachev1alpha1.Memcached) (*reconcile.Result, error) {
+func (r *LoxilightdReconciler) handleBackendChanges(v *cachev1alpha1.Loxilightd) (*reconcile.Result, error) {
 	found := &appsv1.Deployment{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{
 		Name:      backendDeploymentName(v),

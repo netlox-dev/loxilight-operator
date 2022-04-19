@@ -19,15 +19,15 @@ const frontendPort = 3000
 const frontendServicePort = 30686
 const frontendImage = "jdob/visitors-webui:1.0.0"
 
-func frontendDeploymentName(v *cachev1alpha1.Memcached) string {
+func frontendDeploymentName(v *cachev1alpha1.Loxilightd) string {
 	return v.Name + "-frontend"
 }
 
-func frontendServiceName(v *cachev1alpha1.Memcached) string {
+func frontendServiceName(v *cachev1alpha1.Loxilightd) string {
 	return v.Name + "-frontend-service"
 }
 
-func (r *MemcachedReconciler) frontendDeployment(v *cachev1alpha1.Memcached) *appsv1.Deployment {
+func (r *LoxilightdReconciler) frontendDeployment(v *cachev1alpha1.Loxilightd) *appsv1.Deployment {
 	labels := labels(v, "frontend")
 	size := int32(1)
 
@@ -73,7 +73,7 @@ func (r *MemcachedReconciler) frontendDeployment(v *cachev1alpha1.Memcached) *ap
 	return dep
 }
 
-func (r *MemcachedReconciler) frontendService(v *cachev1alpha1.Memcached) *corev1.Service {
+func (r *LoxilightdReconciler) frontendService(v *cachev1alpha1.Loxilightd) *corev1.Service {
 	labels := labels(v, "frontend")
 
 	s := &corev1.Service{
@@ -99,13 +99,13 @@ func (r *MemcachedReconciler) frontendService(v *cachev1alpha1.Memcached) *corev
 	return s
 }
 
-func (r *MemcachedReconciler) updateFrontendStatus(v *cachev1alpha1.Memcached) error {
+func (r *LoxilightdReconciler) updateFrontendStatus(v *cachev1alpha1.Loxilightd) error {
 	v.Status.FrontendImage = frontendImage
 	err := r.Client.Status().Update(context.TODO(), v)
 	return err
 }
 
-func (r *MemcachedReconciler) handleFrontendChanges(v *cachev1alpha1.Memcached) (*reconcile.Result, error) {
+func (r *LoxilightdReconciler) handleFrontendChanges(v *cachev1alpha1.Loxilightd) (*reconcile.Result, error) {
 	found := &appsv1.Deployment{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{
 		Name:      frontendDeploymentName(v),
