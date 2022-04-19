@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	cachev1alpha1 "github.com/netlox-dev/loxilight-operatorapi/v1alpha1"
+	cachev1alpha1 "github.com/netlox-dev/loxilight-operator/api/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

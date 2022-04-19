@@ -1,2 +1,0 @@
-# loxilight-operator
-loxilight-operator

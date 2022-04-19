@@ -8,4 +8,4 @@ webhook:
   port: 9443
 leaderElection:
   leaderElect: true
-  resourceName: 86f835c3.netlox.io
+  resourceName: 4ad3575e.netlox.io

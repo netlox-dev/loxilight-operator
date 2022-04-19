@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	cachev1alpha1 "github.com/netlox-dev/loxilight-operator/api/v1alpha1"
 	"github.com/netlox-dev/loxilight-operator/controllers"
-	cachev1alpha1 "github.com/netlox-dev/loxilight-operatorapi/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -71,7 +71,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "86f835c3.netlox.io",
+		LeaderElectionID:       "4ad3575e.netlox.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

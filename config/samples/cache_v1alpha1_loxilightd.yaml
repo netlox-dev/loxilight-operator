@@ -1,7 +1,7 @@
 apiVersion: cache.netlox.io/v1alpha1
-kind: Memcached
+kind: Loxilightd
 metadata:
-  name: ex
+  name: loxilightd-sample
 spec:
   size: 1
   title: "Custom Dashboard Title"

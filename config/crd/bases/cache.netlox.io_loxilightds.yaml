@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
-  name: memcacheds.cache.netlox.io
+  name: loxilightds.cache.netlox.io
 spec:
   group: cache.netlox.io
   names:
-    kind: Memcached
-    listKind: MemcachedList
-    plural: memcacheds
-    singular: memcached
+    kind: Loxilightd
+    listKind: LoxilightdList
+    plural: loxilightds
+    singular: loxilightd
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Memcached is the Schema for the memcacheds API
+        description: Loxilightd is the Schema for the loxilightds API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,7 +33,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: MemcachedSpec defines the desired state of Memcached
+            description: LoxilightdSpec defines the desired state of Loxilightd
             properties:
               size:
                 format: int32
@@ -45,7 +45,7 @@ spec:
             - title
             type: object
           status:
-            description: MemcachedStatus defines the observed state of Memcached
+            description: LoxilightdStatus defines the observed state of Loxilightd
             properties:
               backendImage:
                 description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
